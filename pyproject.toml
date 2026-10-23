@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "panda3d-interrogate"
-version = "0.11.2"
+version = "0.11.2+stablekite.1"
 description = "Binding generator designed for Panda3D"
 readme = "README.md"
 requires-python = ">=3.2"
@@ -29,6 +29,7 @@ interrogate = "interrogate:main"
 interrogate_module = "interrogate_module:main"
 
 [tool.scikit-build]
+build.tool-args = ["-j2"]
 cmake.version = ">=3.13"
 cmake.args = ["-DBUILD_SHARED_LIBS=OFF", "-DHAVE_PYTHON=ON", "-DPYTHON_ARCH_INSTALL_DIR=."]
 wheel.py-api = "cp33"

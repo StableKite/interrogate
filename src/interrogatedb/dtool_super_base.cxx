@@ -61,6 +61,9 @@ static void Dtool_FreeInstance_DTOOL_SUPER_BASE(PyObject *self) {
  */
 Dtool_PyTypedObject *Dtool_GetSuperBase() {
   Dtool_TypeMap *type_map = Dtool_GetGlobalTypeMap();
+  if (type_map == nullptr) {
+    return nullptr;
+  }
 
   // If we don't have the GIL, we have to protect this with a lock to make
   // sure that there is only one DTOOL_SUPER_BASE instance in the world.

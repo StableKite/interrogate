@@ -250,10 +250,19 @@ Dtool_TypeMap *Dtool_GetGlobalTypeMap() {
 #if PY_VERSION_HEX >= 0x030d0000 // 3.13
   PyObject *istate_dict = PyInterpreterState_GetDict(PyInterpreterState_Get());
   PyObject *key = PyUnicode_InternFromString("_interrogate_types");
-  PyObject *capsule = PyDict_GetItem(istate_dict, key);
-  if (capsule != nullptr) {
+  if (key == nullptr) {
+    return nullptr;
+  }
+  PyObject *capsule = nullptr;
+  int found = PyDict_GetItemRef(istate_dict, key, &capsule);
+  if (found != 0) {
     Py_DECREF(key);
-    return (Dtool_TypeMap *)PyCapsule_GetPointer(capsule, nullptr);
+    if (found < 0) {
+      return nullptr;
+    }
+    auto *type_map = (Dtool_TypeMap *)PyCapsule_GetPointer(capsule, nullptr);
+    Py_DECREF(capsule);
+    return type_map;
   }
 #else
   PyObject *capsule = PySys_GetObject((char *)"_interrogate_types");
@@ -264,22 +273,34 @@ Dtool_TypeMap *Dtool_GetGlobalTypeMap() {
 
   Dtool_TypeMap *type_map = new Dtool_TypeMap;
   capsule = PyCapsule_New((void *)type_map, nullptr, nullptr);
+  if (capsule == nullptr) {
+    delete type_map;
+#if PY_VERSION_HEX >= 0x030d0000
+    Py_DECREF(key);
+#endif
+    return nullptr;
+  }
 
 #if PY_VERSION_HEX >= 0x030d0000 // 3.13
-  PyObject *result;
-  if (PyDict_SetDefaultRef(istate_dict, key, capsule, &result) != 0) {
-    // Another thread already beat us to it.
-    Py_DECREF(capsule);
+  PyObject *result = nullptr;
+  int existing = PyDict_SetDefaultRef(istate_dict, key, capsule, &result);
+  Py_DECREF(key);
+  Py_DECREF(capsule);
+  if (existing < 0) {
     delete type_map;
-    capsule = result;
+    return nullptr;
+  }
+  capsule = result;  // SetDefaultRef always returns an owned reference.
+  if (existing) {
+    // Another importing thread installed its registry first.
+    delete type_map;
     type_map = (Dtool_TypeMap *)PyCapsule_GetPointer(capsule, nullptr);
   }
-  Py_DECREF(key);
 #endif
 
-  PySys_SetObject((char *)"_interrogate_types", capsule);
+  int error = PySys_SetObject((char *)"_interrogate_types", capsule);
   Py_DECREF(capsule);
-  return type_map;
+  return error < 0 ? nullptr : type_map;
 }
 
 /**
@@ -335,6 +356,9 @@ PyObject *Dtool_PyModuleInitHelper(const LibraryDef *defs[], const char *modulen
   }
 
   Dtool_TypeMap *type_map = Dtool_GetGlobalTypeMap();
+  if (type_map == nullptr) {
+    return nullptr;
+  }
 
 #ifdef Py_GIL_DISABLED
   PyMutex_Lock(&type_map->_lock);
@@ -413,7 +437,14 @@ PyObject *Dtool_PyModuleInitHelper(const LibraryDef *defs[], const char *modulen
 #endif
   }
 
-  PyModule_AddIntConstant(module, "Dtool_PyNativeInterface", 1);
+  if (PyModule_AddIntConstant(module, "Dtool_PyNativeInterface", 1) < 0) {
+    Py_DECREF(module);
+    return nullptr;
+  }
+#ifdef Py_GIL_DISABLED
+  // Registry creation and native type-map updates are synchronized above.
+  PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED);
+#endif
   return module;
 }
 
