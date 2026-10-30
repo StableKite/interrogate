@@ -102,6 +102,7 @@ static void Dtool_FreeInstance_##CLASS_NAME(PyObject *self) {\
 static void Dtool_FreeInstance_##CLASS_NAME(PyObject *self) {\
   ((Dtool_InstDef_##CLASS_NAME *)self)->_value.~##CLASS_NAME();\
   Py_TYPE(self)->tp_free(self);\
+}
 
 #if PY_VERSION_HEX >= 0x030d0000
 class Dtool_TypeMap : public std::map<std::string, Dtool_PyTypedObject *> {

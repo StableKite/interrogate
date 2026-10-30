@@ -41,14 +41,32 @@ foreach(infile ${INPUT_FILES})
   file(APPEND "${OUTPUT_FILE}" "  /* ${infile} */\n")
 
   set(offset 0)
+  set(pending_cr "")
   while(1)
     # Read up to 1024 bytes from the input file
     file(READ "${infile}" data LIMIT 1024 OFFSET ${offset} HEX)
     math(EXPR offset "${offset} + 1024")
 
     # If 'data' is empty, we're done
-    if(NOT data)
-      break()
+    if(data STREQUAL "")
+      if(pending_cr STREQUAL "")
+        break()
+      endif()
+      # A final unpaired CR is data, not a CRLF newline.
+      set(data "${pending_cr}")
+      set(pending_cr "")
+    else()
+      set(data "${pending_cr}${data}")
+      set(pending_cr "")
+      # A CRLF pair may straddle two reads.  Keep the CR until the next
+      # chunk so the embedded source never contains a broken macro newline.
+      string(LENGTH "${data}" data_length)
+      math(EXPR last_byte "${data_length} - 2")
+      string(SUBSTRING "${data}" ${last_byte} 2 tail)
+      if(tail STREQUAL "0d")
+        set(pending_cr "0d")
+        string(SUBSTRING "${data}" 0 ${last_byte} data)
+      endif()
     endif()
 
     # Replace newlines
