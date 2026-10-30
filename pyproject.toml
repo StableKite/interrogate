@@ -7,7 +7,7 @@ backend-path = ["."]
 
 [project]
 name = "panda3d-interrogate"
-version = "0.11.2+stablekite.3"
+version = "0.11.2+stablekite.4"
 description = "Binding generator designed for Panda3D"
 readme = "README.md"
 requires-python = ">=3.2"
@@ -44,7 +44,7 @@ interrogate_module = "python/interrogate_module"
 [[tool.scikit-build.overrides]]
 if.platform-system = "^win32$"
 # A PEP 517 build must release its temporary working directories when done.
-cmake.define.CMAKE_VS_GLOBALS = "EnableClServerMode=false;UseMultiToolTask=false"
+cmake.define.CMAKE_VS_GLOBALS = "VcpkgEnabled=false;EnableClServerMode=false;UseMultiToolTask=false"
 
 [tool.cibuildwheel]
 build = "cp38-* cp313t-* cp314t-*"
